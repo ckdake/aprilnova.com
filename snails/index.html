@@ -1,0 +1,37 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Snail Adventure</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Fraunces:wght@600&family=Space+Grotesk:wght@500&display=swap"
+      rel="stylesheet"
+    />
+    <link rel="stylesheet" href="style.css" />
+  </head>
+  <body>
+    <main class="stage" aria-label="Snail adventure game">
+      <div class="hud" role="status" aria-live="polite">
+        <div class="hud-card">
+          <span class="hud-label">LEVEL</span>
+          <span id="hud-level" class="hud-value">1</span>
+        </div>
+        <div class="hud-card">
+          <span class="hud-label">FLOWERS</span>
+          <span id="hud-flowers" class="hud-value">0/30</span>
+        </div>
+      </div>
+      <canvas id="game" aria-label="Snail adventure scene" role="img"></canvas>
+      <div class="dpad" aria-hidden="true">
+        <button class="pad up" data-dir="up"></button>
+        <button class="pad left" data-dir="left"></button>
+        <button class="pad right" data-dir="right"></button>
+        <button class="pad down" data-dir="down"></button>
+      </div>
+    </main>
+    <script src="script.js"></script>
+  </body>
+</html>
