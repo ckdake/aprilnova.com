@@ -34,9 +34,14 @@ const sparkles = Array.from({ length: 24 }, (_, index) => ({
   life: 0,
 }));
 
-const flowers = Array.from({ length: 30 }, (_, index) => ({
-  x: 200 + index * 95,
-  y: 640 + (index % 4) * 12,
+const FLOWER_COUNT = 10;
+const FLOWER_START_X = 260;
+const FLOWER_END_X = 2940;
+const FLOWER_LANES = [640, 598, 556, 514, 472, 430];
+
+const flowers = Array.from({ length: FLOWER_COUNT }, () => ({
+  x: FLOWER_START_X,
+  y: FLOWER_LANES[0],
   sway: Math.random() * Math.PI * 2,
   passed: false,
 }));
@@ -118,7 +123,7 @@ const levels = [
       shell: "#d77aa0",
       shellAccent: "#f5c2d8",
       eye: "#4b3a6f",
-      scale: 1,
+      scale: 0.92,
       crazy: 0,
     },
     hud: {
@@ -605,12 +610,58 @@ const pathObstaclesByLevel = [
   ],
 ];
 
+const ceilingCloudObstaclesByLevel = [
+  [{ x: 1350, y: 342, w: 170, h: 96 }],
+  [{ x: 1080, y: 332, w: 180, h: 100 }],
+  [
+    { x: 980, y: 338, w: 170, h: 96 },
+    { x: 2140, y: 326, w: 188, h: 108 },
+  ],
+  [
+    { x: 900, y: 332, w: 184, h: 102 },
+    { x: 1680, y: 338, w: 172, h: 96 },
+  ],
+  [
+    { x: 860, y: 326, w: 192, h: 108 },
+    { x: 1560, y: 334, w: 176, h: 98 },
+    { x: 2360, y: 340, w: 170, h: 96 },
+  ],
+  [
+    { x: 840, y: 328, w: 188, h: 104 },
+    { x: 1450, y: 336, w: 174, h: 98 },
+    { x: 2140, y: 330, w: 184, h: 102 },
+  ],
+  [
+    { x: 780, y: 324, w: 194, h: 108 },
+    { x: 1380, y: 334, w: 178, h: 98 },
+    { x: 1980, y: 324, w: 194, h: 108 },
+  ],
+  [
+    { x: 760, y: 322, w: 198, h: 110 },
+    { x: 1320, y: 334, w: 180, h: 98 },
+    { x: 1860, y: 322, w: 198, h: 110 },
+  ],
+  [
+    { x: 730, y: 320, w: 204, h: 112 },
+    { x: 1270, y: 332, w: 184, h: 100 },
+    { x: 1820, y: 320, w: 204, h: 112 },
+    { x: 2390, y: 334, w: 182, h: 100 },
+  ],
+  [
+    { x: 700, y: 318, w: 210, h: 114 },
+    { x: 1220, y: 332, w: 186, h: 100 },
+    { x: 1750, y: 318, w: 210, h: 114 },
+    { x: 2290, y: 332, w: 186, h: 100 },
+  ],
+];
+
 const levelObstacles = levels.map((level) =>
   stones.map((stone) => ({
     x: stone.x,
     y: stone.y - (level.obstacleScale - 1) * 18,
     w: stone.w,
     h: stone.h * level.obstacleScale,
+    kind: "stone",
   }))
 );
 
@@ -622,9 +673,114 @@ levelObstacles.forEach((obstacles, index) => {
       y: blocker.y,
       w: blocker.w,
       h: blocker.h,
+      kind: "stone",
+    });
+  });
+
+  const ceilingClouds = ceilingCloudObstaclesByLevel[index] || [];
+  ceilingClouds.forEach((cloud) => {
+    obstacles.push({
+      x: cloud.x,
+      y: cloud.y,
+      w: cloud.w,
+      h: cloud.h,
+      kind: "cloud",
     });
   });
 });
+
+function boxesOverlap(a, b) {
+  return a.left < b.right && a.right > b.left && a.top < b.bottom && a.bottom > b.top;
+}
+
+function getPlantBounds(x, y, plantType, scale) {
+  if (plantType === "cactus") {
+    return {
+      left: x - 24 * scale,
+      right: x + 24 * scale,
+      top: y - 50 * scale,
+      bottom: y + 8 * scale,
+    };
+  }
+
+  if (plantType === "coral") {
+    return {
+      left: x - 20 * scale,
+      right: x + 20 * scale,
+      top: y - 48 * scale,
+      bottom: y + 8 * scale,
+    };
+  }
+
+  return {
+    left: x - 14 * scale,
+    right: x + 14 * scale,
+    top: y - 48 * scale,
+    bottom: y + 6 * scale,
+  };
+}
+
+function flowerOverlapsObstacle(x, y, level, obstacles) {
+  const flowerBounds = getPlantBounds(x, y, level.plantType, level.flowerScale);
+  return obstacles.some((obstacle) =>
+    boxesOverlap(flowerBounds, {
+      left: obstacle.x,
+      right: obstacle.x + obstacle.w,
+      top: obstacle.y,
+      bottom: obstacle.y + obstacle.h,
+    })
+  );
+}
+
+function buildFlowerLayout(levelIndex) {
+  const level = levels[levelIndex];
+  const obstacles = levelObstacles[levelIndex];
+  const xStep = (FLOWER_END_X - FLOWER_START_X) / Math.max(1, FLOWER_COUNT - 1);
+  const xOffsets = [0, 40, -40, 80, -80, 120, -120];
+  const layout = [];
+
+  for (let i = 0; i < FLOWER_COUNT; i += 1) {
+    const baseX = FLOWER_START_X + i * xStep;
+    let placed = null;
+
+    for (const offset of xOffsets) {
+      const x = clamp(baseX + offset, 180, state.worldWidth - 180);
+      const laneOrder = i % 2 === 0 ? FLOWER_LANES : [...FLOWER_LANES].reverse();
+      const y = laneOrder.find((laneY) => !flowerOverlapsObstacle(x, laneY, level, obstacles));
+      if (typeof y === "number") {
+        placed = { x, y };
+        break;
+      }
+    }
+
+    layout.push(placed || { x: clamp(baseX, 180, state.worldWidth - 180), y: 360 });
+  }
+
+  return layout;
+}
+
+const levelFlowerLayouts = levels.map((_, index) => buildFlowerLayout(index));
+
+function getFlowerTouchPoint(flower, level) {
+  if (level.plantType === "cactus") {
+    return { x: flower.x, y: flower.y - 22 * level.flowerScale };
+  }
+
+  if (level.plantType === "coral") {
+    return { x: flower.x, y: flower.y - 32 * level.flowerScale };
+  }
+
+  return { x: flower.x, y: flower.y - 38 * level.flowerScale };
+}
+
+function isSnailTouchingFlower(flower, level, snailScale) {
+  const target = getFlowerTouchPoint(flower, level);
+  const dx = target.x - snail.x;
+  const dy = target.y - snail.y;
+  const reachX = 60 * snailScale + 12 * level.flowerScale;
+  const reachY = 30 * snailScale + 14 * level.flowerScale;
+  return (dx * dx) / (reachX * reachX) + (dy * dy) / (reachY * reachY) <= 1;
+}
 
 const audio = {
   ctx: null,
@@ -744,11 +900,17 @@ function setLevel(index) {
   snail.y = 580;
   snail.vx = 0;
   snail.vy = 0;
-  flowers.forEach((flower) => {
+  const flowerLayout = levelFlowerLayouts[index] || [];
+  flowers.forEach((flower, flowerIndex) => {
+    const placement = flowerLayout[flowerIndex];
+    if (placement) {
+      flower.x = placement.x;
+      flower.y = placement.y;
+    }
     flower.passed = false;
   });
-  updateHud();
   const level = getLevel();
+  updateHud();
   document.documentElement.style.setProperty("--hud-bg", level.hud.bg);
   document.documentElement.style.setProperty("--hud-ink", level.hud.ink);
   document.documentElement.style.setProperty("--hud-accent", level.hud.accent);
@@ -891,12 +1053,13 @@ function updateSnail(dt) {
 
   snail.vx += (targetX * snail.speed - snail.vx) * 0.12;
   snail.vy += (targetY * snail.speed - snail.vy) * 0.12;
+  snail.vy += 78 * dt;
 
   snail.x += snail.vx * dt;
   snail.y += snail.vy * dt;
 
   const xPadding = 120 * snailScale;
-  const yMin = 420 - (snailScale - 1) * 8;
+  const yMin = 360 - (snailScale - 1) * 34;
   const yMax = 720 - (snailScale - 1) * 14;
   snail.x = clamp(snail.x, xPadding, state.worldWidth - xPadding);
   snail.y = clamp(snail.y, yMin, yMax);
@@ -909,16 +1072,16 @@ function updateSnail(dt) {
 
   resolveCollisions(levelObstacles[state.levelIndex], snailScale);
 
-  const snailFrontX = getSnailFrontX(snailScale);
   let passedCount = 0;
   flowers.forEach((flower) => {
-    if (!flower.passed && snailFrontX > flower.x) {
+    if (!flower.passed && isSnailTouchingFlower(flower, level, snailScale)) {
       flower.passed = true;
     }
     if (flower.passed) passedCount += 1;
   });
   state.flowersPassed = passedCount;
 
+  const snailFrontX = getSnailFrontX(snailScale);
   const reachX = 36 * snailScale;
   const reachY = 120 * snailScale;
   const nearRocket =
@@ -1132,6 +1295,32 @@ function drawCloud(x, y, scale) {
   ctx.restore();
 }
 
+function drawCloudObstacle(obstacle) {
+  const x = obstacle.x;
+  const y = obstacle.y;
+  const w = obstacle.w;
+  const h = obstacle.h;
+
+  ctx.save();
+  ctx.fillStyle = "rgba(255, 255, 255, 0.9)";
+  ctx.beginPath();
+  ctx.roundRect(x, y + h * 0.28, w, h * 0.72, 18);
+  ctx.fill();
+
+  ctx.fillStyle = "rgba(245, 251, 255, 0.96)";
+  ctx.beginPath();
+  ctx.ellipse(x + w * 0.2, y + h * 0.42, w * 0.2, h * 0.28, 0, 0, Math.PI * 2);
+  ctx.ellipse(x + w * 0.47, y + h * 0.3, w * 0.24, h * 0.34, 0, 0, Math.PI * 2);
+  ctx.ellipse(x + w * 0.77, y + h * 0.4, w * 0.2, h * 0.26, 0, 0, Math.PI * 2);
+  ctx.fill();
+
+  ctx.fillStyle = "rgba(201, 226, 242, 0.65)";
+  ctx.beginPath();
+  ctx.roundRect(x + 12, y + h * 0.7, w - 24, h * 0.2, 12);
+  ctx.fill();
+  ctx.restore();
+}
+
 function drawGround(cameraX) {
   const level = getLevel();
   ctx.save();
@@ -1149,10 +1338,15 @@ function drawGround(cameraX) {
   ctx.closePath();
   ctx.fill();
 
-  levelObstacles[state.levelIndex].forEach((stone) => {
+  levelObstacles[state.levelIndex].forEach((obstacle) => {
+    if (obstacle.kind === "cloud") {
+      drawCloudObstacle(obstacle);
+      return;
+    }
+
     ctx.fillStyle = level.rock;
     ctx.beginPath();
-    ctx.roundRect(stone.x, stone.y, stone.w, stone.h, 10);
+    ctx.roundRect(obstacle.x, obstacle.y, obstacle.w, obstacle.h, 10);
     ctx.fill();
   });
 
