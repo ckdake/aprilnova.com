@@ -13,6 +13,7 @@ const state = {
   time: 0,
   win: false,
   winTime: 0,
+  snailInRocket: false,
   levelIndex: 0,
   flowersPassed: 0,
 };
@@ -306,7 +307,236 @@ const levels = [
       accent: "#5aa7e8",
     },
   },
+  {
+    sky: [
+      [210, 255, 203],
+      [146, 228, 170],
+      [90, 178, 126],
+    ],
+    hillColors: ["#9fe19a", "#84cf84", "#6fbe76", "#7fc985", "#61ab67"],
+    ground: "#4d9c5e",
+    flowerScale: 2.2,
+    obstacleScale: 1.65,
+    cloudSpeed: 3,
+    water: false,
+    plantType: "flower",
+    creatureType: "meadow",
+    flower: {
+      stem: "#27643b",
+      petal: "#74e08d",
+      center: "#d6ff9e",
+      passedPetal: "#b8f0c5",
+      passedCenter: "#eeffc6",
+    },
+    rock: "#769f7f",
+    sparkle: [198, 255, 186],
+    rocket: {
+      body: "#efffe8",
+      top: "#4cbe73",
+      window: "#7ff0b1",
+      fin: "#78d998",
+      flame: "rgba(176, 255, 178, 0.9)",
+    },
+    snail: {
+      body: "#8ce89f",
+      detail: "#67d180",
+      shell: "#3ea95f",
+      shellAccent: "#d7ffb3",
+      eye: "#1d3c2b",
+      scale: 2.25,
+      crazy: 9,
+    },
+    hud: {
+      bg: "rgba(224, 255, 223, 0.8)",
+      ink: "#14311f",
+      accent: "#3ea95f",
+    },
+  },
+  {
+    sky: [
+      [245, 192, 255],
+      [174, 132, 255],
+      [102, 95, 212],
+    ],
+    hillColors: ["#d6b0ff", "#b98cf4", "#a072df", "#b082ef", "#8b63d0"],
+    ground: "#6a56b8",
+    flowerScale: 2.35,
+    obstacleScale: 1.72,
+    cloudSpeed: 2,
+    water: false,
+    plantType: "flower",
+    creatureType: "meadow",
+    flower: {
+      stem: "#4f2f8f",
+      petal: "#ff8ddd",
+      center: "#9ff7ff",
+      passedPetal: "#ffc9ee",
+      passedCenter: "#d8feff",
+    },
+    rock: "#7e74bc",
+    sparkle: [236, 198, 255],
+    rocket: {
+      body: "#f2ebff",
+      top: "#9f7bff",
+      window: "#7fe7ff",
+      fin: "#ff8ddd",
+      flame: "rgba(206, 172, 255, 0.92)",
+    },
+    snail: {
+      body: "#ff8fce",
+      detail: "#ff73bf",
+      shell: "#8f6bff",
+      shellAccent: "#bff4ff",
+      eye: "#2c1f56",
+      scale: 2.4,
+      crazy: 10,
+    },
+    hud: {
+      bg: "rgba(235, 223, 255, 0.82)",
+      ink: "#21143f",
+      accent: "#8f6bff",
+    },
+  },
+  {
+    sky: [
+      [255, 188, 134],
+      [255, 118, 88],
+      [175, 58, 54],
+    ],
+    hillColors: ["#ffb178", "#eb8f66", "#d77458", "#e68561", "#c9644a"],
+    ground: "#a94938",
+    flowerScale: 2.5,
+    obstacleScale: 1.82,
+    cloudSpeed: 1,
+    water: false,
+    plantType: "cactus",
+    creatureType: "desert",
+    flower: {
+      stem: "#6f2f23",
+      petal: "#ff9b5e",
+      center: "#ffe08a",
+      passedPetal: "#ffcfa7",
+      passedCenter: "#fff0bc",
+    },
+    rock: "#8f4d40",
+    sparkle: [255, 196, 146],
+    rocket: {
+      body: "#ffe9dd",
+      top: "#ff6a3d",
+      window: "#ffd179",
+      fin: "#ff3f2e",
+      flame: "rgba(255, 136, 78, 0.95)",
+    },
+    snail: {
+      body: "#ff6a46",
+      detail: "#ff8d5a",
+      shell: "#d83a27",
+      shellAccent: "#ffbc68",
+      eye: "#3e1a12",
+      scale: 2.55,
+      crazy: 11,
+    },
+    hud: {
+      bg: "rgba(255, 221, 198, 0.84)",
+      ink: "#4b2116",
+      accent: "#d83a27",
+    },
+  },
+  {
+    sky: [
+      [95, 180, 226],
+      [45, 110, 188],
+      [17, 55, 118],
+    ],
+    hillColors: ["#5eb4d6", "#4c9fc7", "#3d8bb8", "#4d9aca", "#377cad"],
+    ground: "#2d5e8f",
+    flowerScale: 2.65,
+    obstacleScale: 1.9,
+    cloudSpeed: 0,
+    water: true,
+    plantType: "coral",
+    creatureType: "underwater",
+    flower: {
+      stem: "#1f5a84",
+      petal: "#ff9be3",
+      center: "#ffe39d",
+      passedPetal: "#ffd2f0",
+      passedCenter: "#fff2c4",
+    },
+    rock: "#4a7da8",
+    sparkle: [168, 231, 255],
+    rocket: {
+      body: "#e8f7ff",
+      top: "#2ea8ff",
+      window: "#ffe08a",
+      fin: "#ff7aa2",
+      flame: "rgba(126, 214, 255, 0.92)",
+    },
+    snail: {
+      body: "#ffa2d7",
+      detail: "#ff80c3",
+      shell: "#2f8fd4",
+      shellAccent: "#f4f3ff",
+      eye: "#221744",
+      scale: 2.7,
+      crazy: 12,
+    },
+    hud: {
+      bg: "rgba(195, 229, 255, 0.82)",
+      ink: "#0f2b47",
+      accent: "#2ea8ff",
+    },
+  },
+  {
+    sky: [
+      [36, 32, 86],
+      [22, 25, 62],
+      [10, 14, 38],
+    ],
+    hillColors: ["#5b4ea8", "#4b3f95", "#3f367f", "#50469f", "#362f72"],
+    ground: "#332a68",
+    flowerScale: 2.8,
+    obstacleScale: 2,
+    cloudSpeed: 1,
+    water: false,
+    plantType: "flower",
+    creatureType: "meadow",
+    flower: {
+      stem: "#6db3ff",
+      petal: "#c0a2ff",
+      center: "#ffd37f",
+      passedPetal: "#e0ceff",
+      passedCenter: "#ffe9b7",
+    },
+    rock: "#52478a",
+    sparkle: [223, 206, 255],
+    rocket: {
+      body: "#eef0ff",
+      top: "#9a8dff",
+      window: "#9fd9ff",
+      fin: "#ff9ad7",
+      flame: "rgba(179, 160, 255, 0.95)",
+    },
+    snail: {
+      body: "#ff9cde",
+      detail: "#ff7fcb",
+      shell: "#7a66f3",
+      shellAccent: "#ffd98e",
+      eye: "#1f173d",
+      scale: 2.85,
+      crazy: 14,
+    },
+    hud: {
+      bg: "rgba(219, 216, 255, 0.8)",
+      ink: "#181438",
+      accent: "#9a8dff",
+    },
+  },
 ];
+
+function getSnailFrontX(scale) {
+  return snail.x - snail.dir * 58 * scale;
+}
 
 const levelObstacles = levels.map((level) =>
   stones.map((stone) => ({
@@ -364,6 +594,41 @@ const musicProfiles = [
     chordRoots: [55, 53],
     leadDetune: 5,
   },
+  {
+    stepMs: 160,
+    leadPattern: [74, 78, 81, 78, 79, 78, 76, null, 74, 76, 79, 76, 78, 76, 74, null],
+    bassPattern: [47, null, 47, null, 50, null, 52, null, 45, null, 45, null, 48, null, 47, null],
+    chordRoots: [59, 57],
+    leadDetune: 9,
+  },
+  {
+    stepMs: 148,
+    leadPattern: [72, 76, 79, 81, 79, 76, 72, null, 71, 74, 77, 79, 77, 74, 71, null],
+    bassPattern: [45, null, 43, null, 41, null, 43, null, 40, null, 41, null, 43, null, 45, null],
+    chordRoots: [57, 53],
+    leadDetune: 11,
+  },
+  {
+    stepMs: 176,
+    leadPattern: [67, 71, 74, 76, 74, 71, 67, null, 66, 69, 72, 74, 72, 69, 66, null],
+    bassPattern: [40, null, 40, null, 43, null, 45, null, 38, null, 38, null, 41, null, 40, null],
+    chordRoots: [52, 50],
+    leadDetune: 6,
+  },
+  {
+    stepMs: 138,
+    leadPattern: [79, 83, 86, 88, 86, 83, 79, null, 77, 81, 84, 86, 84, 81, 77, null],
+    bassPattern: [48, null, 48, null, 52, null, 55, null, 47, null, 47, null, 50, null, 48, null],
+    chordRoots: [60, 59],
+    leadDetune: 12,
+  },
+  {
+    stepMs: 126,
+    leadPattern: [81, 84, 88, 91, 88, 84, 81, null, 79, 83, 86, 88, 86, 83, 79, null],
+    bassPattern: [50, null, 50, null, 53, null, 57, null, 48, null, 48, null, 52, null, 50, null],
+    chordRoots: [62, 60],
+    leadDetune: 14,
+  },
 ];
 
 function resize() {
@@ -393,6 +658,7 @@ function setLevel(index) {
   state.levelIndex = index;
   state.win = false;
   state.winTime = 0;
+  state.snailInRocket = false;
   state.flowersPassed = 0;
   rocket.launch = 0;
   snail.x = 240;
@@ -564,25 +830,27 @@ function updateSnail(dt) {
 
   resolveCollisions(levelObstacles[state.levelIndex], snailScale);
 
+  const snailFrontX = getSnailFrontX(snailScale);
   let passedCount = 0;
   flowers.forEach((flower) => {
-    if (!flower.passed && snail.x > flower.x + 20) {
+    if (!flower.passed && snailFrontX > flower.x) {
       flower.passed = true;
     }
     if (flower.passed) passedCount += 1;
   });
   state.flowersPassed = passedCount;
 
-  const reachX = 80 * snailScale;
+  const reachX = 36 * snailScale;
   const reachY = 120 * snailScale;
   const nearRocket =
-    snail.x > rocket.x - reachX &&
-    snail.x < rocket.x + 60 &&
+    snailFrontX > rocket.x - reachX &&
+    snailFrontX < rocket.x + reachX &&
     snail.y < rocket.y + reachY;
 
   if (passedCount === flowers.length && nearRocket) {
     state.win = true;
     state.winTime = state.time;
+    state.snailInRocket = true;
   }
 
   const speed = Math.hypot(snail.vx, snail.vy);
@@ -960,6 +1228,10 @@ function drawSparkle(sparkle, level) {
 }
 
 function drawSnail(cameraX) {
+  if (state.snailInRocket) {
+    return;
+  }
+
   const level = getLevel();
   const style = level.snail;
   const bob = Math.sin(snail.bob) * 3;
@@ -1144,6 +1416,25 @@ window.addEventListener("keydown", (event) => {
 window.addEventListener("keyup", (event) => state.keys.delete(event.key));
 
 const dpad = document.querySelector(".dpad");
+const stage = document.querySelector(".stage");
+const gameCanvas = document.getElementById("game");
+
+if (stage) {
+  stage.addEventListener("contextmenu", (event) => {
+    event.preventDefault();
+  });
+}
+
+if (gameCanvas) {
+  gameCanvas.addEventListener(
+    "touchstart",
+    (event) => {
+      event.preventDefault();
+    },
+    { passive: false }
+  );
+}
+
 if (dpad) {
   dpad.addEventListener("pointerdown", (event) => {
     const target = event.target.closest(".pad");
