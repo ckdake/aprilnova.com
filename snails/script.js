@@ -538,6 +538,73 @@ function getSnailFrontX(scale) {
   return snail.x - snail.dir * 58 * scale;
 }
 
+const pathObstaclesByLevel = [
+  [{ x: 900, y: 500, w: 90, h: 170 }],
+  [
+    { x: 820, y: 470, w: 86, h: 150 },
+    { x: 1500, y: 560, w: 92, h: 150 },
+  ],
+  [
+    { x: 760, y: 555, w: 82, h: 140 },
+    { x: 1260, y: 470, w: 88, h: 170 },
+    { x: 1880, y: 540, w: 96, h: 160 },
+  ],
+  [
+    { x: 700, y: 480, w: 90, h: 160 },
+    { x: 1160, y: 560, w: 98, h: 152 },
+    { x: 1660, y: 470, w: 92, h: 176 },
+    { x: 2220, y: 545, w: 104, h: 158 },
+  ],
+  [
+    { x: 680, y: 560, w: 94, h: 146 },
+    { x: 1040, y: 470, w: 94, h: 176 },
+    { x: 1420, y: 555, w: 100, h: 150 },
+    { x: 1820, y: 470, w: 96, h: 180 },
+    { x: 2280, y: 545, w: 108, h: 162 },
+  ],
+  [
+    { x: 650, y: 475, w: 94, h: 170 },
+    { x: 980, y: 560, w: 98, h: 154 },
+    { x: 1320, y: 470, w: 100, h: 180 },
+    { x: 1700, y: 555, w: 106, h: 158 },
+    { x: 2060, y: 470, w: 100, h: 178 },
+  ],
+  [
+    { x: 640, y: 560, w: 94, h: 150 },
+    { x: 930, y: 470, w: 96, h: 178 },
+    { x: 1240, y: 560, w: 102, h: 150 },
+    { x: 1580, y: 470, w: 100, h: 182 },
+    { x: 1940, y: 555, w: 108, h: 158 },
+    { x: 2320, y: 470, w: 102, h: 182 },
+  ],
+  [
+    { x: 620, y: 475, w: 96, h: 172 },
+    { x: 900, y: 560, w: 98, h: 152 },
+    { x: 1190, y: 470, w: 102, h: 182 },
+    { x: 1510, y: 560, w: 104, h: 152 },
+    { x: 1860, y: 470, w: 104, h: 184 },
+    { x: 2190, y: 555, w: 110, h: 160 },
+  ],
+  [
+    { x: 610, y: 560, w: 98, h: 150 },
+    { x: 860, y: 470, w: 100, h: 182 },
+    { x: 1130, y: 560, w: 102, h: 152 },
+    { x: 1410, y: 470, w: 106, h: 186 },
+    { x: 1710, y: 560, w: 108, h: 152 },
+    { x: 2030, y: 470, w: 108, h: 186 },
+    { x: 2370, y: 555, w: 112, h: 160 },
+  ],
+  [
+    { x: 600, y: 475, w: 100, h: 174 },
+    { x: 840, y: 560, w: 100, h: 152 },
+    { x: 1090, y: 470, w: 104, h: 186 },
+    { x: 1360, y: 560, w: 106, h: 152 },
+    { x: 1650, y: 470, w: 108, h: 188 },
+    { x: 1960, y: 560, w: 108, h: 152 },
+    { x: 2280, y: 470, w: 110, h: 188 },
+  ],
+];
+
 const levelObstacles = levels.map((level) =>
   stones.map((stone) => ({
     x: stone.x,
@@ -546,6 +613,18 @@ const levelObstacles = levels.map((level) =>
     h: stone.h * level.obstacleScale,
   }))
 );
+
+levelObstacles.forEach((obstacles, index) => {
+  const blockers = pathObstaclesByLevel[index] || [];
+  blockers.forEach((blocker) => {
+    obstacles.push({
+      x: blocker.x,
+      y: blocker.y,
+      w: blocker.w,
+      h: blocker.h,
+    });
+  });
+});
 
 const audio = {
   ctx: null,
@@ -1474,12 +1553,12 @@ function resolveCollisions(obstacles, scale) {
   const halfW = 55 * scale;
   const halfH = 28 * scale;
 
-  const left = snail.x - halfW;
-  const right = snail.x + halfW;
-  const top = snail.y - halfH;
-  const bottom = snail.y + halfH;
-
   obstacles.forEach((obstacle) => {
+    const left = snail.x - halfW;
+    const right = snail.x + halfW;
+    const top = snail.y - halfH;
+    const bottom = snail.y + halfH;
+
     const oLeft = obstacle.x;
     const oRight = obstacle.x + obstacle.w;
     const oTop = obstacle.y;
