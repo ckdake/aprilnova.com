@@ -89,6 +89,66 @@ body {
   color: var(--hud-accent);
 }
 
+.slime-btn {
+  --cooldown: 0;
+  position: absolute;
+  left: 3vw;
+  bottom: 8vh;
+  min-width: 112px;
+  height: 64px;
+  border: 0;
+  border-radius: 999px;
+  background: rgba(74, 199, 119, 0.82);
+  color: rgba(255, 255, 255, 0.96);
+  font-family: "Space Grotesk", ui-sans-serif, system-ui, sans-serif;
+  font-size: 1rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  box-shadow: 0 10px 24px rgba(13, 45, 29, 0.28);
+  pointer-events: auto;
+  touch-action: none;
+  -webkit-tap-highlight-color: transparent;
+  -webkit-user-select: none;
+  user-select: none;
+  -webkit-touch-callout: none;
+  cursor: pointer;
+  transition: transform 90ms ease, background-color 90ms ease, box-shadow 90ms ease;
+  overflow: hidden;
+}
+
+.slime-btn::after {
+  content: "";
+  position: absolute;
+  left: 10px;
+  right: 10px;
+  bottom: 8px;
+  height: 6px;
+  border-radius: 999px;
+  background: rgba(18, 66, 33, 0.45);
+}
+
+.slime-btn::before {
+  content: "";
+  position: absolute;
+  left: 10px;
+  bottom: 8px;
+  height: 6px;
+  width: calc((100% - 20px) * (1 - var(--cooldown)));
+  border-radius: 999px;
+  background: rgba(220, 255, 225, 0.92);
+  transition: width 55ms linear;
+}
+
+.slime-btn.cooling {
+  background: rgba(66, 165, 98, 0.82);
+}
+
+.slime-btn:active {
+  transform: scale(0.96);
+  background: rgba(62, 182, 105, 0.9);
+  box-shadow: 0 6px 14px rgba(13, 45, 29, 0.32);
+}
+
 .dpad {
   position: absolute;
   right: 3vw;
@@ -192,6 +252,14 @@ body {
     right: 4vw;
     bottom: 4vh;
   }
+
+  .slime-btn {
+    left: 4vw;
+    bottom: 12vh;
+    min-width: 108px;
+    height: 60px;
+    font-size: 0.92rem;
+  }
 }
 
 @media (pointer: coarse) {
@@ -200,5 +268,13 @@ body {
     height: 244px;
     right: 4vw;
     bottom: 4vh;
+  }
+
+  .slime-btn {
+    left: 4vw;
+    bottom: 14vh;
+    min-width: 132px;
+    height: 72px;
+    font-size: 1.08rem;
   }
 }

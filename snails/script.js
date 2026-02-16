@@ -13,10 +13,17 @@ const state = {
   time: 0,
   win: false,
   winTime: 0,
+  gameCompleted: false,
+  gameCompleteTime: 0,
   snailInRocket: false,
+  slimeCooldownUntil: 0,
   levelIndex: 0,
   flowersPassed: 0,
 };
+
+const CLOUD_DRIFT_MULTIPLIER = 0.01;
+const SLIME_COOLDOWN_MS = 650;
+const SLIME_SPLAT_LIFETIME_MS = 920;
 
 const snail = {
   x: 240,
@@ -33,6 +40,8 @@ const sparkles = Array.from({ length: 24 }, (_, index) => ({
   y: 480 + (index % 5) * 30,
   life: 0,
 }));
+
+const slimeSplats = [];
 
 const FLOWER_COUNT = 10;
 const FLOWER_START_X = 260;
@@ -501,7 +510,7 @@ const levels = [
     hillColors: ["#5b4ea8", "#4b3f95", "#3f367f", "#50469f", "#362f72"],
     ground: "#332a68",
     flowerScale: 2.8,
-    obstacleScale: 2,
+    obstacleScale: 1.9,
     cloudSpeed: 1,
     water: false,
     plantType: "flower",
@@ -528,7 +537,7 @@ const levels = [
       shell: "#7a66f3",
       shellAccent: "#ffd98e",
       eye: "#1f173d",
-      scale: 2.85,
+      scale: 2.72,
       crazy: 14,
     },
     hud: {
@@ -849,6 +858,12 @@ const audio = {
 const MUSIC_TEMPO_MULTIPLIER = 1.12;
 const MUSIC_VERSE_STEPS = 32;
 
+function getLevelTempoMultiplier(levelIndex) {
+  if (levelIndex <= 2) return 1.34;
+  if (levelIndex <= 4) return 1.22;
+  return MUSIC_TEMPO_MULTIPLIER;
+}
+
 const musicProfiles = [
   {
     stepMs: 180,
@@ -949,6 +964,8 @@ function setLevel(index) {
   state.levelIndex = index;
   state.win = false;
   state.winTime = 0;
+  state.gameCompleted = false;
+  state.gameCompleteTime = 0;
   state.snailInRocket = false;
   state.flowersPassed = 0;
   rocket.launch = 0;
@@ -956,6 +973,8 @@ function setLevel(index) {
   snail.y = 580;
   snail.vx = 0;
   snail.vy = 0;
+  state.slimeCooldownUntil = 0;
+  slimeSplats.length = 0;
   const flowerLayout = levelFlowerLayouts[index] || [];
   flowers.forEach((flower, flowerIndex) => {
     const placement = flowerLayout[flowerIndex];
@@ -971,6 +990,72 @@ function setLevel(index) {
   document.documentElement.style.setProperty("--hud-ink", level.hud.ink);
   document.documentElement.style.setProperty("--hud-accent", level.hud.accent);
   setMusicForLevel(index);
+}
+
+function playSlimeFlickSound() {
+  if (!audio.ctx || !audio.enabled) return;
+  const now = audio.ctx.currentTime;
+  const osc = audio.ctx.createOscillator();
+  const gain = audio.ctx.createGain();
+  osc.type = "triangle";
+  osc.frequency.setValueAtTime(220, now);
+  osc.frequency.exponentialRampToValueAtTime(130, now + 0.08);
+  gain.gain.value = 0.0001;
+  osc.connect(gain);
+  gain.connect(audio.ctx.destination);
+  gain.gain.exponentialRampToValueAtTime(0.05, now + 0.02);
+  gain.gain.exponentialRampToValueAtTime(0.0001, now + 0.12);
+  osc.start(now);
+  osc.stop(now + 0.14);
+}
+
+function flickSlimeAtFrontObstacle() {
+  if (state.win || state.time < state.slimeCooldownUntil) {
+    return false;
+  }
+
+  const level = getLevel();
+  const scale = level.snail.scale;
+  const forward = -snail.dir;
+  const frontX = getSnailFrontX(scale);
+  const maxRange = 300;
+  const verticalReach = 66 * scale;
+
+  const target = levelObstacles[state.levelIndex]
+    .filter((obstacle) => !obstacle.removed)
+    .map((obstacle) => {
+      const obstacleFront = forward > 0 ? obstacle.x : obstacle.x + obstacle.w;
+      const distance = forward > 0 ? obstacleFront - frontX : frontX - obstacleFront;
+      const obstacleMidY = obstacle.y + obstacle.h * 0.5;
+      const verticalDistance = Math.abs(obstacleMidY - snail.y);
+      return {
+        obstacle,
+        distance,
+        verticalDistance,
+      };
+    })
+    .filter(
+      (candidate) =>
+        candidate.distance >= -8 &&
+        candidate.distance <= maxRange &&
+        candidate.verticalDistance <= verticalReach
+    )
+    .sort((a, b) => a.distance - b.distance)[0];
+
+  if (!target) {
+    return false;
+  }
+
+  target.obstacle.removed = true;
+  state.slimeCooldownUntil = state.time + SLIME_COOLDOWN_MS;
+  slimeSplats.push({
+    x: target.obstacle.x + target.obstacle.w * 0.5,
+    y: target.obstacle.y + target.obstacle.h * 0.55,
+    r: Math.max(26, Math.min(70, (target.obstacle.w + target.obstacle.h) * 0.24)),
+    t: state.time,
+  });
+  playSlimeFlickSound();
+  return true;
 }
 
 function initAudio() {
@@ -1018,6 +1103,7 @@ function scheduleRetroStep() {
   if (!audio.ctx || !audio.enabled) return;
 
   const profile = musicProfiles[audio.musicProfileIndex] || musicProfiles[0];
+  const chillMix = audio.musicProfileIndex <= 2;
   const step = audio.musicStep;
   const verseStep = step % MUSIC_VERSE_STEPS;
   const now = audio.ctx.currentTime + 0.02;
@@ -1045,12 +1131,15 @@ function scheduleRetroStep() {
 
   if (leadNote !== null) {
     const leadFrequency = midiToFrequency(leadNote);
-    playSynthNote("square", leadFrequency, now, 0.16, 0.015);
-    playSynthNote("square", leadFrequency, now, 0.16, 0.01, profile.leadDetune);
+    const leadType = chillMix ? "triangle" : "square";
+    const leadVolume = chillMix ? 0.0095 : 0.015;
+    const detuneVolume = chillMix ? 0.0055 : 0.01;
+    playSynthNote(leadType, leadFrequency, now, 0.16, leadVolume);
+    playSynthNote(leadType, leadFrequency, now, 0.16, detuneVolume, profile.leadDetune);
   }
 
   if (bassNote !== null) {
-    playSynthNote("sawtooth", midiToFrequency(bassNote), now, 0.22, 0.02);
+    playSynthNote("sawtooth", midiToFrequency(bassNote), now, 0.22, chillMix ? 0.014 : 0.02);
   }
 
   if (step % 8 === 0) {
@@ -1058,8 +1147,14 @@ function scheduleRetroStep() {
     const chordRoot =
       profile.chordRoots[chordSection % profile.chordRoots.length] +
       (chordSection >= 2 ? 2 : 0);
-    playSynthNote("triangle", midiToFrequency(chordRoot), now, 0.52, 0.008);
-    playSynthNote("triangle", midiToFrequency(chordRoot + 7), now, 0.52, 0.007);
+    playSynthNote("triangle", midiToFrequency(chordRoot), now, 0.52, chillMix ? 0.006 : 0.008);
+    playSynthNote(
+      "triangle",
+      midiToFrequency(chordRoot + 7),
+      now,
+      0.52,
+      chillMix ? 0.0055 : 0.007
+    );
   }
 
   audio.musicStep += 1;
@@ -1077,7 +1172,7 @@ function setMusicForLevel(levelIndex) {
   const nextProfile = Math.max(0, Math.min(levelIndex, musicProfiles.length - 1));
   const profile = musicProfiles[nextProfile];
   audio.musicProfileIndex = nextProfile;
-  audio.musicStepMs = Math.round(profile.stepMs * MUSIC_TEMPO_MULTIPLIER);
+  audio.musicStepMs = Math.round(profile.stepMs * getLevelTempoMultiplier(levelIndex));
   audio.musicStep = 0;
 
   if (audio.musicTimer) {
@@ -1091,20 +1186,31 @@ function setMusicForLevel(levelIndex) {
   }
 }
 
-function playSnailSound() {
+function playFlowerPickupSound(count = 1) {
   if (!audio.ctx || !audio.enabled) return;
   const now = audio.ctx.currentTime;
-  const osc = audio.ctx.createOscillator();
+  const oscA = audio.ctx.createOscillator();
+  const oscB = audio.ctx.createOscillator();
   const gain = audio.ctx.createGain();
-  osc.type = "triangle";
-  osc.frequency.value = 420 + Math.random() * 60;
+  const intensity = Math.min(3, Math.max(1, count));
+
+  oscA.type = "sine";
+  oscB.type = "sine";
+  oscA.frequency.setValueAtTime(760 + intensity * 25, now);
+  oscA.frequency.exponentialRampToValueAtTime(1180 + intensity * 35, now + 0.08);
+  oscB.frequency.setValueAtTime(1120 + intensity * 30, now);
+  oscB.frequency.exponentialRampToValueAtTime(1480 + intensity * 40, now + 0.08);
+
   gain.gain.value = 0.0001;
-  osc.connect(gain);
+  oscA.connect(gain);
+  oscB.connect(gain);
   gain.connect(audio.ctx.destination);
-  gain.gain.exponentialRampToValueAtTime(0.08, now + 0.04);
-  gain.gain.exponentialRampToValueAtTime(0.0001, now + 0.18);
-  osc.start(now);
-  osc.stop(now + 0.2);
+  gain.gain.exponentialRampToValueAtTime(0.055 + intensity * 0.005, now + 0.018);
+  gain.gain.exponentialRampToValueAtTime(0.0001, now + 0.14);
+  oscA.start(now);
+  oscB.start(now + 0.006);
+  oscA.stop(now + 0.16);
+  oscB.stop(now + 0.16);
 }
 
 function updateSnail(dt) {
@@ -1149,13 +1255,20 @@ function updateSnail(dt) {
   resolveCollisions(levelObstacles[state.levelIndex], snailScale);
 
   let passedCount = 0;
+  let collectedThisFrame = 0;
   flowers.forEach((flower) => {
     if (!flower.passed && isSnailTouchingFlower(flower, level, snailScale)) {
       flower.passed = true;
+      collectedThisFrame += 1;
     }
     if (flower.passed) passedCount += 1;
   });
   state.flowersPassed = passedCount;
+
+  if (collectedThisFrame > 0 && state.time - audio.last > 80) {
+    audio.last = state.time;
+    playFlowerPickupSound(collectedThisFrame);
+  }
 
   const snailFrontX = getSnailFrontX(snailScale);
   const reachX = 36 * snailScale;
@@ -1168,13 +1281,15 @@ function updateSnail(dt) {
   if (passedCount === flowers.length && nearRocket) {
     state.win = true;
     state.winTime = state.time;
-    state.snailInRocket = true;
-  }
-
-  const speed = Math.hypot(snail.vx, snail.vy);
-  if (speed > 18 && state.time - audio.last > 280) {
-    audio.last = state.time;
-    playSnailSound();
+    if (state.levelIndex === levels.length - 1) {
+      state.gameCompleted = true;
+      state.gameCompleteTime = state.time;
+      state.snailInRocket = false;
+      snail.vx = 0;
+      snail.vy = 0;
+    } else {
+      state.snailInRocket = true;
+    }
   }
 
   sparkles.forEach((sparkle) => {
@@ -1203,7 +1318,9 @@ function drawBackground(cameraX) {
     ctx.translate(-cameraX * 0.15, 0);
     clouds.forEach((cloud) => {
       const x =
-        (cloud.x + state.time * level.cloudSpeed) % (state.worldWidth + 400) - 200;
+        (cloud.x + state.time * level.cloudSpeed * CLOUD_DRIFT_MULTIPLIER) %
+          (state.worldWidth + 400) -
+        200;
       drawCloud(x, cloud.y, cloud.scale);
     });
     ctx.restore();
@@ -1397,6 +1514,49 @@ function drawCloudObstacle(obstacle) {
   ctx.restore();
 }
 
+function drawSlimeSplats() {
+  slimeSplats.forEach((splat) => {
+    const age = state.time - splat.t;
+    const life = clamp(age / SLIME_SPLAT_LIFETIME_MS, 0, 1);
+    if (life >= 1) return;
+
+    const alpha = 1 - life;
+    const spread = 1 + life * 0.45;
+    const radius = splat.r * spread;
+
+    ctx.save();
+    ctx.globalAlpha = alpha * 0.9;
+    ctx.fillStyle = "rgba(88, 226, 122, 0.92)";
+    ctx.beginPath();
+    ctx.ellipse(splat.x, splat.y, radius * 0.82, radius * 0.46, 0, 0, Math.PI * 2);
+    ctx.ellipse(
+      splat.x - radius * 0.55,
+      splat.y + radius * 0.05,
+      radius * 0.34,
+      radius * 0.22,
+      0,
+      0,
+      Math.PI * 2
+    );
+    ctx.ellipse(
+      splat.x + radius * 0.52,
+      splat.y - radius * 0.02,
+      radius * 0.3,
+      radius * 0.2,
+      0,
+      0,
+      Math.PI * 2
+    );
+    ctx.fill();
+
+    ctx.fillStyle = "rgba(166, 255, 186, 0.8)";
+    ctx.beginPath();
+    ctx.ellipse(splat.x - radius * 0.16, splat.y - radius * 0.08, radius * 0.2, radius * 0.11, 0, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.restore();
+  });
+}
+
 function drawGround(cameraX) {
   const level = getLevel();
   ctx.save();
@@ -1415,6 +1575,10 @@ function drawGround(cameraX) {
   ctx.fill();
 
   levelObstacles[state.levelIndex].forEach((obstacle) => {
+    if (obstacle.removed) {
+      return;
+    }
+
     if (obstacle.kind === "cloud") {
       drawCloudObstacle(obstacle);
       return;
@@ -1425,6 +1589,8 @@ function drawGround(cameraX) {
     ctx.roundRect(obstacle.x, obstacle.y, obstacle.w, obstacle.h, 10);
     ctx.fill();
   });
+
+  drawSlimeSplats();
 
   flowers.forEach((flower) => {
     const sway = Math.sin(state.time * 0.0006 + flower.sway) * 0.06;
@@ -1583,13 +1749,22 @@ function drawSnail(cameraX) {
 
   const level = getLevel();
   const style = level.snail;
+  const danceBeat = state.gameCompleted ? (state.time - state.gameCompleteTime) * 0.022 : 0;
+  const danceX = state.gameCompleted ? Math.sin(danceBeat) * 18 : 0;
+  const danceY = state.gameCompleted ? -Math.abs(Math.sin(danceBeat * 1.8)) * 12 : 0;
+  const danceTwist = state.gameCompleted ? Math.sin(danceBeat) * 0.28 : 0;
+  const renderDir = state.gameCompleted
+    ? Math.sin(danceBeat) >= 0
+      ? -1
+      : 1
+    : snail.dir;
   const bob = Math.sin(snail.bob) * 3;
   const wobble =
     Math.sin(state.time * 0.004 + state.levelIndex) * (0.02 + style.crazy * 0.008);
   ctx.save();
-  ctx.translate(snail.x - cameraX, snail.y + bob);
-  ctx.scale(snail.dir * style.scale, style.scale);
-  ctx.rotate(wobble * 0.3);
+  ctx.translate(snail.x - cameraX + danceX, snail.y + bob + danceY);
+  ctx.scale(renderDir * style.scale, style.scale);
+  ctx.rotate(wobble * 0.3 + danceTwist);
 
   ctx.fillStyle = style.body;
   ctx.beginPath();
@@ -1732,6 +1907,14 @@ function loop(timestamp) {
   const dt = Math.min(0.033, (timestamp - state.time) / 1000 || 0.016);
   state.time = timestamp;
 
+  if (slimeSplats.length > 0) {
+    for (let i = slimeSplats.length - 1; i >= 0; i -= 1) {
+      if (state.time - slimeSplats[i].t > SLIME_SPLAT_LIFETIME_MS) {
+        slimeSplats.splice(i, 1);
+      }
+    }
+  }
+
   updateSnail(dt);
 
   const cameraX = clamp(
@@ -1739,17 +1922,34 @@ function loop(timestamp) {
     0,
     state.worldWidth - state.width
   );
+  const finalFadeProgress = state.gameCompleted
+    ? clamp((state.time - state.gameCompleteTime) / 4200, 0, 1)
+    : 0;
+  const sceneAlpha = 1 - finalFadeProgress;
 
   ctx.clearRect(0, 0, state.width, state.height);
+  ctx.save();
+  ctx.globalAlpha = sceneAlpha;
   drawBackground(cameraX);
   drawGround(cameraX);
-  drawSnail(cameraX);
   drawForeground(cameraX);
+  ctx.restore();
+
+  drawSnail(cameraX);
+
+  if (finalFadeProgress > 0) {
+    ctx.save();
+    ctx.fillStyle = `rgba(6, 8, 18, ${finalFadeProgress * 0.85})`;
+    ctx.fillRect(0, 0, state.width, state.height);
+    ctx.restore();
+    drawSnail(cameraX);
+  }
 
   updateHud();
+  updateSlimeButton();
 
   if (state.win && state.time - state.winTime > 2600) {
-    if (state.levelIndex < levels.length - 1) {
+    if (state.levelIndex < levels.length - 1 && !state.gameCompleted) {
       setLevel(state.levelIndex + 1);
     }
   }
@@ -1760,6 +1960,10 @@ function loop(timestamp) {
 window.addEventListener("resize", resize);
 window.addEventListener("keydown", (event) => {
   initAudio();
+  if (event.code === "Space") {
+    event.preventDefault();
+    flickSlimeAtFrontObstacle();
+  }
   state.keys.add(event.key);
 });
 window.addEventListener("keyup", (event) => state.keys.delete(event.key));
@@ -1767,6 +1971,15 @@ window.addEventListener("keyup", (event) => state.keys.delete(event.key));
 const dpad = document.querySelector(".dpad");
 const stage = document.querySelector(".stage");
 const gameCanvas = document.getElementById("game");
+const slimeButton = document.getElementById("slime-btn");
+
+function updateSlimeButton() {
+  if (!slimeButton) return;
+  const remaining = Math.max(0, state.slimeCooldownUntil - state.time);
+  const progress = Math.min(1, remaining / SLIME_COOLDOWN_MS);
+  slimeButton.style.setProperty("--cooldown", String(progress));
+  slimeButton.classList.toggle("cooling", progress > 0);
+}
 
 if (stage) {
   stage.addEventListener("contextmenu", (event) => {
@@ -1782,6 +1995,14 @@ if (gameCanvas) {
     },
     { passive: false }
   );
+}
+
+if (slimeButton) {
+  slimeButton.addEventListener("pointerdown", (event) => {
+    event.preventDefault();
+    initAudio();
+    flickSlimeAtFrontObstacle();
+  });
 }
 
 if (dpad) {
@@ -1824,6 +2045,10 @@ function resolveCollisions(obstacles, scale) {
   const halfH = 28 * scale;
 
   obstacles.forEach((obstacle) => {
+    if (obstacle.removed) {
+      return;
+    }
+
     const left = snail.x - halfW;
     const right = snail.x + halfW;
     const top = snail.y - halfH;
