@@ -689,6 +689,59 @@ levelObstacles.forEach((obstacles, index) => {
   });
 });
 
+function spreadMixedLaneObstacles() {
+  levelObstacles.forEach((obstacles, levelIndex) => {
+    const snailScale = levels[levelIndex].snail.scale;
+    const minOverUnderCenterGap = 190 + snailScale * 95;
+    const minCloudCloudGap = 150 + snailScale * 60;
+    const worldPadding = 120;
+
+    const clouds = obstacles
+      .filter((obstacle) => obstacle.kind === "cloud")
+      .sort((a, b) => a.x - b.x);
+
+    const lowerBlockers = obstacles.filter(
+      (obstacle) => obstacle.kind === "stone" && obstacle.y <= 620 && obstacle.h >= 120
+    );
+
+    clouds.forEach((cloud) => {
+      lowerBlockers.forEach((blocker) => {
+        const cloudCenter = cloud.x + cloud.w * 0.5;
+        const blockerCenter = blocker.x + blocker.w * 0.5;
+        const distance = cloudCenter - blockerCenter;
+        if (Math.abs(distance) >= minOverUnderCenterGap) return;
+
+        const shiftDir = distance < 0 ? -1 : 1;
+        const shiftAmount = minOverUnderCenterGap - Math.abs(distance);
+        cloud.x = clamp(
+          cloud.x + shiftDir * shiftAmount,
+          worldPadding,
+          state.worldWidth - cloud.w - worldPadding
+        );
+      });
+    });
+
+    clouds.sort((a, b) => a.x - b.x);
+    for (let i = 1; i < clouds.length; i += 1) {
+      const prev = clouds[i - 1];
+      const current = clouds[i];
+      const prevCenter = prev.x + prev.w * 0.5;
+      const currentCenter = current.x + current.w * 0.5;
+      const separation = currentCenter - prevCenter;
+      if (separation >= minCloudCloudGap) continue;
+
+      const adjust = minCloudCloudGap - separation;
+      current.x = clamp(
+        current.x + adjust,
+        worldPadding,
+        state.worldWidth - current.w - worldPadding
+      );
+    }
+  });
+}
+
+spreadMixedLaneObstacles();
+
 function boxesOverlap(a, b) {
   return a.left < b.right && a.right > b.left && a.top < b.bottom && a.bottom > b.top;
 }
@@ -792,6 +845,9 @@ const audio = {
   musicProfileIndex: 0,
   musicStepMs: 180,
 };
+
+const MUSIC_TEMPO_MULTIPLIER = 1.12;
+const MUSIC_VERSE_STEPS = 32;
 
 const musicProfiles = [
   {
@@ -963,12 +1019,29 @@ function scheduleRetroStep() {
 
   const profile = musicProfiles[audio.musicProfileIndex] || musicProfiles[0];
   const step = audio.musicStep;
+  const verseStep = step % MUSIC_VERSE_STEPS;
   const now = audio.ctx.currentTime + 0.02;
   const leadPattern = profile.leadPattern;
   const bassPattern = profile.bassPattern;
+  const leadPhraseStep = verseStep % leadPattern.length;
+  const bassPhraseStep = verseStep % bassPattern.length;
 
-  const leadNote = leadPattern[step % leadPattern.length];
-  const bassNote = bassPattern[step % bassPattern.length];
+  let leadNote = leadPattern[leadPhraseStep];
+  let bassNote = bassPattern[bassPhraseStep];
+
+  if (verseStep >= leadPattern.length && leadNote !== null) {
+    const melodicLift = verseStep % 8 === 0 ? 2 : verseStep % 8 === 4 ? -1 : 0;
+    leadNote += melodicLift;
+  }
+
+  if (verseStep >= bassPattern.length) {
+    if (bassNote !== null && verseStep % 4 === 0) {
+      bassNote -= 2;
+    }
+    if (verseStep % 6 === 3) {
+      bassNote = null;
+    }
+  }
 
   if (leadNote !== null) {
     const leadFrequency = midiToFrequency(leadNote);
@@ -981,7 +1054,10 @@ function scheduleRetroStep() {
   }
 
   if (step % 8 === 0) {
-    const chordRoot = step % 16 === 0 ? profile.chordRoots[0] : profile.chordRoots[1];
+    const chordSection = Math.floor(verseStep / 8) % 4;
+    const chordRoot =
+      profile.chordRoots[chordSection % profile.chordRoots.length] +
+      (chordSection >= 2 ? 2 : 0);
     playSynthNote("triangle", midiToFrequency(chordRoot), now, 0.52, 0.008);
     playSynthNote("triangle", midiToFrequency(chordRoot + 7), now, 0.52, 0.007);
   }
@@ -1001,7 +1077,7 @@ function setMusicForLevel(levelIndex) {
   const nextProfile = Math.max(0, Math.min(levelIndex, musicProfiles.length - 1));
   const profile = musicProfiles[nextProfile];
   audio.musicProfileIndex = nextProfile;
-  audio.musicStepMs = profile.stepMs;
+  audio.musicStepMs = Math.round(profile.stepMs * MUSIC_TEMPO_MULTIPLIER);
   audio.musicStep = 0;
 
   if (audio.musicTimer) {
